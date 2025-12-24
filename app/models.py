@@ -9,10 +9,16 @@ from pydantic import BaseModel, Field
 class ExtractRequest(BaseModel):
     """Request model for PDF extraction endpoint."""
     
-    pdfPath: str = Field(
-        ...,
-        description="Absolute path to the PDF file to extract data from",
+    pdfPath: Optional[str] = Field(
+        None,
+        description="Absolute path to the PDF file to extract data from (legacy support)",
         example="/path/to/uploads/drone-analysis/file.pdf"
+    )
+    
+    pdfContent: Optional[str] = Field(
+        None,
+        description="Base64-encoded PDF file content",
+        example="JVBERi0xLjQKJeLjz9MKMSAwIG9iago8PC..."
     )
 
 
