@@ -193,7 +193,7 @@ async def extract_drone_data(request: ExtractRequest) -> ExtractResponse:
             extractor = AgremoReportExtractor(pdf_path)
             
             # Extract data (without base64 image data for API response)
-            extracted_data = extractor.extract(include_base64=False)
+            extracted_data = extractor.extract(include_base64=request.includeImageBase64)
             
             logger.info(f"Successfully extracted data from PDF: {pdf_path}")
             

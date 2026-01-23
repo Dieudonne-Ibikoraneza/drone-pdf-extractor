@@ -58,8 +58,28 @@ class AgremoReportExtractor:
                 "stress_levels": []
             },
             "additional_info": None,
-            "map_image": None
+            "map_image": {
+                "format": "png",
+                "width": None,
+                "height": None,
+                "data": None
+            }
         }
+
+        # Extract map image from page 2 (index 1)
+        page2 = self.doc[1]
+        image_list = page2.get_images(full=True)
+        if image_list:
+            # Assume first/main image is the map (adjust index if multiple images)
+            xref = image_list[0][0]  # XREF of the image
+            base_image = self.doc.extract_image(xref)
+            image_bytes = base_image["image"]
+            extracted_data["map_image"]["width"] = base_image["width"]
+            extracted_data["map_image"]["height"] = base_image["height"]
+
+            if include_base64:
+                extracted_data["map_image"]["data"] = base64.b64encode(image_bytes).decode('utf-8')
+
     
     def _parse_page1_text(self, text: str) -> None:
         """Parse structured data from page 1 text"""
