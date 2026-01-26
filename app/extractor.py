@@ -203,7 +203,7 @@ class AgremoReportExtractor:
             "width": largest["width"],
             "height": largest["height"],
             "size_bytes": largest["size_bytes"],
-            "data_base64": base64.b64encode(largest["bytes"]).decode('utf-8')
+            "data": base64.b64encode(largest["bytes"]).decode('utf-8')
         }
         
         # Save to file if output directory specified
@@ -261,7 +261,7 @@ class AgremoReportExtractor:
         if len(self.doc) >= 2:
             map_data = self._extract_map_image(1, output_dir)
             if not include_base64:
-                map_data.pop("data_base64", None)
+                map_data.pop("data", None)
             self.result["map_image"] = map_data
         
         return self.result

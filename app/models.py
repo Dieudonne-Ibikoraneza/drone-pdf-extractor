@@ -22,7 +22,7 @@ class ExtractRequest(BaseModel):
     )
 
     includeImageBase64: bool = Field(
-        False,
+        default=True,
         description="Whether to include base64-encoded map image data in the response (increases payload size)",
         example=True
     )
