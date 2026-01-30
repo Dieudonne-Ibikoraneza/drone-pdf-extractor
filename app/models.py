@@ -21,12 +21,6 @@ class ExtractRequest(BaseModel):
         example="JVBERi0xLjQKJeLjz9MKMSAwIG9iago8PC..."
     )
 
-    includeImageBase64: bool = Field(
-        default=True,
-        description="Whether to include base64-encoded map image data in the response (increases payload size)",
-        example=True
-    )
-
 
 class ExtractResponse(BaseModel):
     """Response model for PDF extraction endpoint."""

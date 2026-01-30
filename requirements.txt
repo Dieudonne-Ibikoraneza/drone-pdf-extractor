@@ -4,4 +4,3 @@ pymupdf==1.26.7
 python-dotenv==1.2.1
 pydantic==2.12.5
 pydantic-settings==2.12.0
-

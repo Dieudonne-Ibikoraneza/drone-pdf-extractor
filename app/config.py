@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     
     # CORS
     cors_origins: str = "*"  # Comma-separated list of allowed origins
+
+    # CLOUDINARY
+    cloudinary_cloud_name: Optional[str] = None
+    cloudinary_api_key: Optional[str] = None
+    cloudinary_api_secret: Optional[str] = None
+    cloudinary_folder: str = "starhawk-map-images"
     
     class Config:
         env_file = ".env"
