@@ -42,7 +42,7 @@ class AnalysisTypeConfig:
                 {"name": "Potential Plant Stress", "severity": "moderate", "pattern": r'\bPotential\s+Plant\s+Stress\s+([\d.]+)%\s+([\d.]+)\b'},
                 {"name": "Plant Stress", "severity": "high", "pattern": r'\bPlant\s+Stress\s+([\d.]+)%\s+([\d.]+)\b', "exclude_context": "potential"}
             ],
-            "field_name": "analysis_data"  # Generic name instead of "weed_analysis"
+            "field_name": "weed_analysis"  # Generic name instead of "weed_analysis"
         },
         "flowering": {
             "keywords": ["FLOWERING", "Flowering"],
@@ -52,14 +52,14 @@ class AnalysisTypeConfig:
                 {"name": "Flowering", "severity": "moderate", "pattern": r'\bFlowering\s+([\d.]+)%\s+([\d.]+)\b', "exclude_context": "full|no"},
                 {"name": "No Flowering", "severity": "low", "pattern": r'\bNo\s+Flowering\s+([\d.]+)%\s+([\d.]+)\b'}
             ],
-            "field_name": "analysis_data"
+            "field_name": "weed_analysis"
         },
         # Easy to add more types:
         # "weed_pressure": {
         #     "keywords": ["WEED", "Weed Pressure"],
         #     "total_area_pattern": r"total area weed:",
         #     "levels": [...],
-        #     "field_name": "analysis_data"
+        #     "field_name": "weed_analysis"
         # }
     }
 
@@ -92,7 +92,7 @@ class AgremoReportExtractor:
                 "growing_stage": None,
                 "area_hectares": None
             },
-            "analysis_data": {  # Renamed from "weed_analysis" to be generic
+            "weed_analysis": {
                 "total_area_hectares": None,
                 "total_area_percent": None,
                 "levels": []
@@ -249,46 +249,60 @@ class AgremoReportExtractor:
         total_label_pos = lower_full_spaced.find(total_pattern)
 
         if total_label_pos >= 0:
-            search_text = lower_full_spaced[total_label_pos:total_label_pos + 200]
+            # Search AFTER the label (Plant Stress format: "Total area PLANT STRESS: 22.04 ha = 69% field")
+            search_text_after = lower_full_spaced[total_label_pos:total_label_pos + 200]
 
             # Try pattern 1: "X ha = Y% field" (Plant Stress format)
-            total_match = re.search(r'([\d.]+)\s*ha\s*=\s*([\d.]+)%\s*field', search_text, re.I)
+            total_match = re.search(r'([\d.]+)\s*ha\s*=\s*([\d.]+)%\s*field', search_text_after, re.I)
             if total_match:
                 try:
-                    self.result["analysis_data"]["total_area_hectares"] = float(total_match.group(1))
-                    self.result["analysis_data"]["total_area_percent"] = float(total_match.group(2))
+                    self.result["weed_analysis"]["total_area_hectares"] = float(total_match.group(1))
+                    self.result["weed_analysis"]["total_area_percent"] = float(total_match.group(2))
                     logger.info(f"Extracted total area from pattern 1: {total_match.group(1)} ha = {total_match.group(2)}%")
+                    return  # Success, exit
                 except (ValueError, IndexError) as e:
                     logger.error(f"Error parsing total area pattern 1: {e}")
-            else:
-                # Try pattern 2: "Y% field" only (Flowering format - missing ha)
-                percent_match = re.search(r'([\d.]+)%\s*field', search_text, re.I)
-                if percent_match:
-                    try:
-                        self.result["analysis_data"]["total_area_percent"] = float(percent_match.group(1))
-                        logger.info(f"Extracted percentage only: {percent_match.group(1)}%")
-                        # Note: hectares will be calculated from levels later
-                    except (ValueError, IndexError) as e:
-                        logger.error(f"Error parsing total area pattern 2: {e}")
-        else:
-            # Fallback: search entire text for "X ha = Y% field"
-            total_match = re.search(r'([\d.]+)\s*ha\s*=\s*([\d.]+)%\s*field', lower_full_spaced, re.I)
-            if total_match:
+
+            # Pattern 2: "Y% field" after label (Flowering format)
+            percent_match = re.search(r'([\d.]+)%\s*field', search_text_after, re.I)
+            if percent_match:
                 try:
-                    self.result["analysis_data"]["total_area_hectares"] = float(total_match.group(1))
-                    self.result["analysis_data"]["total_area_percent"] = float(total_match.group(2))
-                    logger.info(f"Extracted total area from fallback: {total_match.group(1)} ha = {total_match.group(2)}%")
+                    self.result["weed_analysis"]["total_area_percent"] = float(percent_match.group(1))
+                    logger.info(f"Extracted percentage from after label: {percent_match.group(1)}%")
+                    return  # Success, exit
                 except (ValueError, IndexError) as e:
-                    logger.error(f"Error parsing total area (fallback): {e}")
-            else:
-                # Fallback 2: search entire text for "Y% field" only
-                percent_match = re.search(r'([\d.]+)%\s*field', lower_full_spaced, re.I)
-                if percent_match:
-                    try:
-                        self.result["analysis_data"]["total_area_percent"] = float(percent_match.group(1))
-                        logger.info(f"Extracted percentage from fallback 2: {percent_match.group(1)}%")
-                    except (ValueError, IndexError) as e:
-                        logger.error(f"Error parsing percentage (fallback 2): {e}")
+                    logger.error(f"Error parsing total area pattern 2: {e}")
+
+            # Pattern 3: Search BEFORE the label (Flowering alternative format: "6.58% field\nTotal area FLOWERING:")
+            search_text_before = lower_full_spaced[max(0, total_label_pos - 100):total_label_pos]
+            percent_match_before = re.search(r'([\d.]+)%\s*field', search_text_before, re.I)
+            if percent_match_before:
+                try:
+                    self.result["weed_analysis"]["total_area_percent"] = float(percent_match_before.group(1))
+                    logger.info(f"Extracted percentage from before label: {percent_match_before.group(1)}%")
+                    return  # Success, exit
+                except (ValueError, IndexError) as e:
+                    logger.error(f"Error parsing percentage before label: {e}")
+
+        # Fallback 1: search entire text for "X ha = Y% field"
+        total_match = re.search(r'([\d.]+)\s*ha\s*=\s*([\d.]+)%\s*field', lower_full_spaced, re.I)
+        if total_match:
+            try:
+                self.result["weed_analysis"]["total_area_hectares"] = float(total_match.group(1))
+                self.result["weed_analysis"]["total_area_percent"] = float(total_match.group(2))
+                logger.info(f"Extracted total area from fallback 1: {total_match.group(1)} ha = {total_match.group(2)}%")
+                return  # Success, exit
+            except (ValueError, IndexError) as e:
+                logger.error(f"Error parsing total area (fallback 1): {e}")
+
+        # Fallback 2: search entire text for "Y% field" only
+        percent_match = re.search(r'([\d.]+)%\s*field', lower_full_spaced, re.I)
+        if percent_match:
+            try:
+                self.result["weed_analysis"]["total_area_percent"] = float(percent_match.group(1))
+                logger.info(f"Extracted percentage from fallback 2: {percent_match.group(1)}%")
+            except (ValueError, IndexError) as e:
+                logger.error(f"Error parsing percentage (fallback 2): {e}")
 
     def _extract_levels(self, full_text_spaced: str) -> None:
         """Extract levels dynamically based on analysis type configuration"""
@@ -337,7 +351,7 @@ class AgremoReportExtractor:
                     except ValueError as e:
                         logger.warning(f"Error parsing level {level_name}: {e}")
 
-        self.result["analysis_data"]["levels"] = levels
+        self.result["weed_analysis"]["levels"] = levels
 
     def _extract_additional_info(self, full_text: str, full_text_spaced: str) -> None:
         """Extract additional information or recommendations"""
@@ -464,10 +478,10 @@ class AgremoReportExtractor:
 
     def _calculate_total_from_levels(self) -> None:
         """Calculate total area from levels if not already set (fallback for Flowering format)"""
-        levels = self.result["analysis_data"]["levels"]
+        levels = self.result["weed_analysis"]["levels"]
 
         # If total_area_hectares is missing but we have levels, calculate it
-        if self.result["analysis_data"]["total_area_hectares"] is None and levels:
+        if self.result["weed_analysis"]["total_area_hectares"] is None and levels:
             # For Flowering: sum the areas of severity levels (not "No Flowering")
             # For Plant Stress: sum the areas of stress levels (not "Fine")
 
@@ -490,7 +504,7 @@ class AgremoReportExtractor:
                         total_hectares += level["area_hectares"]
 
             if total_hectares > 0:
-                self.result["analysis_data"]["total_area_hectares"] = round(total_hectares, 2)
+                self.result["weed_analysis"]["total_area_hectares"] = round(total_hectares, 2)
                 logger.info(f"Calculated total_area_hectares from levels: {total_hectares} ha")
 
     def extract(self, output_dir: Optional[str] = None) -> Dict[str, Any]:
