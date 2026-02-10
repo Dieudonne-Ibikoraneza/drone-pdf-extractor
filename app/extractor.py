@@ -81,7 +81,7 @@ class AgremoReportExtractor:
                 "extractor_version": "3.0-unified"
             },
             "report": {
-                "provider": "Agremo",
+                "provider": "STARHAWK",
                 "type": None,
                 "survey_date": None,
                 "analysis_name": None,

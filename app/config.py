@@ -35,6 +35,7 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
+        extra="allow"
         
     def get_upload_dir(self) -> str:
         """Get the upload directory path, defaulting if not set."""
